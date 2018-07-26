@@ -1,0 +1,80 @@
+package:
+  individually: true
+  exclude:
+    - __test__/**
+
+service:
+  name: foodInspectBot-global-s3Writer
+
+plugins:
+  - serverless-webpack
+
+custom:
+  stage: ${opt:stage, 'dev'}
+  productPrefix: foodInspectBot-${self:custom.stage}
+  webpack:
+    includeModules:
+      forceExclude:
+        - aws-sdk
+
+provider:
+  name: aws
+  profile: foodinspectbot
+  region: us-west-2
+  tags:
+    Product: foodInspectBot
+  versionFunctions: false
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource:
+        Ref: onErrorTopic
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+        - s3:PutObjectTagging
+      Resource:
+        Fn::Join:
+          - /
+          -
+            - Fn::GetAtt: [ archiveBucket, Arn ]
+            - '*'
+
+functions:
+  realTime:
+    name: foodInspectBot-global-s3Writer-realTime
+    description: Writes incoming inspection data to a given S3 bucket
+    handler: real-time.handler
+    runtime: nodejs8.10
+    memorySize: 512
+    timeout: 1
+    onError:
+      Ref: onErrorTopic
+    environment:
+      BUCKET_NAME:
+        Ref: archiveBucket
+    events:
+      - sns:
+          arn:
+            Fn::Join:
+              - ':'
+              -
+                - arn
+                - aws
+                - sns
+                - ${self:provider.region}
+                - Ref: AWS::AccountId
+                - ${self:custom.productPrefix}-global-newInspection
+          topicName: foo
+
+resources:
+  Resources:
+    archiveBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: foodinspectbot-${self:custom.stage}-global-inspections
+    onErrorTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:custom.productPrefix}-global-s3Writer_onError

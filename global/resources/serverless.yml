@@ -1,0 +1,27 @@
+service:
+  name: foodInspectBot-resources
+
+custom:
+  stage: ${opt:stage, 'dev'}
+  productPrefix: foodInspectBot-${self:custom.stage}
+
+provider:
+  name: aws
+  profile: foodinspectbot
+  region: us-west-2
+  tags:
+    Product: foodInspectBot
+
+resources:
+  Resources:
+    # Notification stream for all new parsed inspections
+    globalNewInspectionTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:custom.productPrefix}-global-newInspection
+  Outputs:
+    exportGlobalNewInspectionTopicArn:
+      Value:
+        Ref: globalNewInspectionTopic
+      Export:
+        Name: arnOf-globalNewInspectionTopic-${self:custom.stage}
